@@ -1,0 +1,474 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>LMC Script Studio</title>
+<style>
+:root{color-scheme:dark;--bg:#050505;--panel:#08111f;--line:#26354a;--blue:#0066ff;--green:#00ff99;--gold:#ffc400;--muted:#9aaac0}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:#fff;font-family:Arial,Helvetica,sans-serif}
+button,input,textarea,select{font:inherit}
+button{cursor:pointer;background:#17263c;color:#fff;border:1px solid #34445c;border-radius:9px;padding:10px 15px}
+button:hover{background:#243d60}
+button.primary{background:var(--blue);border-color:var(--blue);font-weight:bold}
+button.danger{color:#ff7185}
+input,textarea{background:#101b2b;border:1px solid #34445c;color:#fff;border-radius:9px;padding:12px;width:100%}
+textarea{resize:vertical;line-height:1.6}
+input[type=range]{accent-color:var(--blue);padding:0}
+header{padding:18px 5%;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.logo{font-size:11px;color:#00a3ff;font-weight:800;letter-spacing:3px}
+h1{font-size:22px;margin:6px 0}
+small,.muted{color:var(--muted)}
+nav{display:flex;gap:8px;flex-wrap:wrap;padding:15px 5%;background:var(--panel)}
+nav button.active{background:var(--blue);border-color:var(--blue)}
+main{max-width:1100px;margin:25px auto;padding:0 20px}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:20px;margin-bottom:18px}
+.row{display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+.row>*{min-width:0}
+.space{justify-content:space-between}
+h2{font-size:20px}
+h3{font-size:15px;color:var(--gold)}
+label{display:block;color:#b9c7d9;font-size:13px;margin:12px 0 7px}
+.script-card{background:#0d1929;border:1px solid var(--line);border-radius:12px;padding:15px;margin:15px 0}
+.script-card textarea{min-height:160px}
+.library-item{padding:15px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.hidden{display:none!important}
+#prompterView{position:fixed;inset:0;background:#050505;z-index:20;display:none;flex-direction:column}
+#prompterView.open{display:flex}
+.prompt-controls{background:#08111f;padding:12px;display:flex;gap:10px;flex-wrap:wrap;align-items:center;justify-content:center;border-bottom:1px solid var(--line)}
+.prompt-controls label{margin:0;display:flex;gap:8px;align-items:center}
+.prompt-controls input{width:95px}
+#promptReader{flex:1;min-height:0;overflow-y:auto;background:#050505;color:#fff;scrollbar-color:#64748b #050505}
+#promptContent{max-width:1050px;margin:auto;text-align:center;padding:35px 7% 65vh}
+#promptContent h2{font-size:16px;color:var(--gold);letter-spacing:2px;margin:0 0 50px}
+#promptContent p{font-size:var(--font,36px);line-height:1.65;color:#fff!important;margin:0 0 1.25em;white-space:pre-wrap}
+#promptContent strong{color:var(--green)!important}
+#promptReader.mirror #promptContent{transform:scaleX(-1)}
+.prompt-footer{padding:12px 20px;background:#08111f;display:flex;justify-content:space-between;color:#aabbcf;font-size:12px}
+@media(max-width:650px){header{padding:14px}h1{font-size:19px}.panel{padding:14px}#promptContent{padding:25px 5% 65vh}.prompt-controls{gap:6px}.prompt-controls button{padding:8px;font-size:12px}}
+</style>
+</head>
+<body>
+
+<header>
+<div>
+<div class="logo">LIVE MARKET COACH</div>
+<h1>Script Studio <span style="color:#00ff99">v1.0</span></h1>
+<small>Create · Practice · Record</small>
+</div>
+<div class="muted">LEARN WHY YOU EARN</div>
+</header>
+
+<nav>
+<button class="active" data-tab="writer">✎ Script Writer</button>
+<button data-tab="library">▤ Library</button>
+<button id="openPrompter" class="primary">▶ Teleprompter</button>
+</nav>
+
+<main>
+<section id="writer">
+<div class="panel">
+<div class="row space">
+<h2>Script Editor</h2>
+<span id="saveStatus" class="muted">Saved locally</span>
+</div>
+<label>Video title</label>
+<input id="scriptTitle" placeholder="Enter video title">
+<div class="row" style="margin-top:15px">
+<button id="newScript">+ New Script</button>
+<button id="addBlock">+ Add Section</button>
+<button id="duplicateScript">Duplicate</button>
+<button id="exportScript">Export JSON</button>
+</div>
+</div>
+<div id="blocks"></div>
+</section>
+
+<section id="library" class="hidden">
+<div class="panel">
+<div class="row space">
+<h2>My Script Library</h2>
+<div class="row">
+<button id="importButton">Import JSON</button>
+<button id="backupButton">Backup All</button>
+</div>
+</div>
+<input id="search" placeholder="Search scripts...">
+<div id="libraryItems"></div>
+</div>
+</section>
+</main>
+
+<input type="file" id="importFile" accept=".json,application/json" hidden>
+
+<div id="prompterView">
+<div class="prompt-controls">
+<button id="closePrompter">✕ Exit</button>
+<button id="play" class="primary">▶ Start</button>
+<button id="reset">↺ Reset</button>
+<button id="previous">← Previous</button>
+<button id="next">Next →</button>
+<select id="sectionPicker" style="background:#17263c;color:#fff;border:1px solid #34445c;border-radius:8px;padding:9px"></select>
+</div>
+<div class="prompt-controls">
+<label>Speed <input type="range" id="speed" min="0" max="100" value="25"><span id="speedNumber">25</span></label>
+<label>Font <input type="range" id="fontSize" min="20" max="65" value="36"><span id="fontNumber">36</span></label>
+<button id="mirror">Mirror: OFF</button>
+<button id="fullscreen">⛶ Fullscreen</button>
+</div>
+<div id="promptReader">
+<div id="promptContent"></div>
+</div>
+<div class="prompt-footer">
+<span id="progress"></span>
+<span id="promptStatus">READY</span>
+</div>
+</div>
+
+<script>
+"use strict";
+const STORAGE="lmc-script-studio-v1";
+const $=id=>document.getElementById(id);
+const uid=()=>crypto.randomUUID?crypto.randomUUID():String(Date.now()+Math.random());
+
+const sample={
+id:"apex-evaluation-demo",
+title:"How I Passed My $50K Apex Evaluation",
+blocks:[
+{title:"INTRODUCTION",text:`Hey everyone!
+
+In this video, I'm going to show you the trading strategy that helped me successfully pass my $50,000 Apex evaluation account.
+
+I'll walk you through my trading journal, explain my risk management rules, and show you the entry technique I used.
+
+And most importantly, I'll explain how I managed to pass this evaluation with only two losing days.
+
+Let's get started!`},
+{title:"HOW LONG DID IT TAKE?",text:`Alright, let's start with my trading journal.
+
+As you can see, it took me about three weeks to pass this evaluation.
+
+Now, you might be wondering...
+
+Why did it take so long?
+
+Well, the answer is simple.
+
+I wasn't trying to pass as quickly as possible.
+
+I didn't want to open multiple evaluation accounts and take unnecessary risks.
+
+My goal was to focus on just one account, trade it with discipline, pass the evaluation, and qualify for a funded account.
+
+For me, consistency was much more important than speed.`},
+{title:"MY RISK MANAGEMENT STRATEGY",text:`Now, let's talk about risk management.
+
+This was one of the most important parts of my strategy.
+
+When I started, I set my maximum daily loss limit at $450.
+
+Later, I increased that limit to $650 per day.
+
+But I also had a daily profit target.
+
+At first, my maximum daily profit target was $650.
+
+Later, I increased it to $850.
+
+So I had two very clear rules.
+
+I knew how much I was willing to lose.
+
+And I knew when I wanted to stop trading after reaching my profit target.
+
+This helped me avoid overtrading, emotional decisions, and unnecessary risk.`},
+{title:"MY TRADING SYSTEM",text:`Now, let's talk about the actual trading strategy.
+
+To understand the market, I used the Live Market Coach Visual Trading System, along with several Live Market Coach indicators.
+
+These tools helped me identify market context, liquidity, and potential trading opportunities.
+
+But here's the important part.
+
+I wasn't just following buy and sell signals.
+
+I wanted to understand what the market was doing before entering a trade.
+
+First, I looked at market context.
+
+Then, I waited for confirmation.
+
+And only after that did I look for an entry.
+
+This is the foundation of my trading approach.`},
+{title:"MY ENTRY TECHNIQUE",text:`Now, here's the most interesting part.
+
+My main entry technique was based on engulfing the previous displacement candle.
+
+Let me explain.
+
+First, I waited for a strong displacement candle.
+
+Then, I looked for an engulfing candle that confirmed my setup.
+
+Once I had the right market context and confirmation, I could plan my entry with a clearly defined stop loss.
+
+I was trading with two micro contracts, and my target was usually a simple one-to-one risk-to-reward ratio.
+
+I wasn't trying to catch huge market moves.
+
+I was looking for clean, controlled opportunities.
+
+And this approach worked very well for me during this particular evaluation.`},
+{title:"THE RESULTS",text:`Now, let's look at the results.
+
+As you can see in my trading journal, I completed the evaluation in approximately three weeks.
+
+And during that entire period, I had only two losing days.
+
+For me, that was the most important result.
+
+Not because every trade was perfect.
+
+But because I followed a structured process.
+
+I managed my risk.
+
+I waited for confirmation.
+
+And I avoided forcing trades when the market wasn't giving me a clear opportunity.
+
+Of course, this doesn't mean the strategy will always produce the same results.
+
+But it shows what disciplined execution can look like.`},
+{title:"FINAL THOUGHTS",text:`So, what's the biggest lesson from this evaluation?
+
+You don't have to rush.
+
+You don't need to trade multiple accounts.
+
+And you don't need to chase huge profits every single day.
+
+What you need is a clear trading plan, a repeatable entry strategy, and disciplined risk management.
+
+That's exactly what I focus on with Live Market Coach.
+
+Our philosophy is simple.
+
+Market context before confirmation.
+
+Confirmation before execution.
+
+And risk before reward.
+
+If you want to learn more about the Live Market Coach Visual Trading System, check out the link in the description.
+
+And remember...
+
+Learn Why You Earn.
+
+Thanks for watching, and I'll see you in the next video!`}
+]};
+
+function load(){
+try{
+const data=JSON.parse(localStorage.getItem(STORAGE));
+if(Array.isArray(data)&&data.length)return data;
+}catch(e){}
+return [sample];
+}
+let scripts=load();
+let active=scripts[0].id;
+let current=0,playing=false,frame=0,last=0;
+const reader=$("promptReader");
+
+function save(){
+try{
+localStorage.setItem(STORAGE,JSON.stringify(scripts));
+$("saveStatus").textContent="Saved locally";
+}catch(e){$("saveStatus").textContent="Storage unavailable — export a backup";}
+}
+function script(){return scripts.find(s=>s.id===active)||scripts[0]}
+function element(tag,cls,text){
+const el=document.createElement(tag);
+if(cls)el.className=cls;
+if(text!==undefined)el.textContent=text;
+return el;
+}
+function renderEditor(){
+const s=script();
+$("scriptTitle").value=s.title;
+const container=$("blocks");
+container.replaceChildren();
+s.blocks.forEach((b,i)=>{
+const card=element("div","script-card");
+const top=element("div","row space");
+top.append(element("h3","",`SECTION ${i+1}`));
+const del=element("button","danger","Remove");
+del.onclick=()=>{
+if(s.blocks.length===1)return alert("Keep at least one section.");
+if(!confirm("Remove this section?"))return;
+s.blocks.splice(i,1);save();renderEditor();
+};
+top.append(del);
+const title=element("input");
+title.value=b.title;
+title.placeholder="Section heading";
+title.oninput=()=>{b.title=title.value;save()};
+const area=element("textarea");
+area.value=b.text;
+area.rows=8;
+area.placeholder="Write your script here...";
+area.oninput=()=>{b.text=area.value;save()};
+card.append(top,title,area);
+container.append(card);
+});
+}
+$("scriptTitle").oninput=e=>{script().title=e.target.value;save()};
+$("addBlock").onclick=()=>{
+script().blocks.push({title:"NEW SECTION",text:""});
+save();renderEditor();
+};
+$("newScript").onclick=()=>{
+const s={id:uid(),title:"Untitled Script",blocks:[{title:"INTRODUCTION",text:""}]};
+scripts.unshift(s);active=s.id;save();renderEditor();
+};
+$("duplicateScript").onclick=()=>{
+const copy=JSON.parse(JSON.stringify(script()));
+copy.id=uid();copy.title+=" (Copy)";
+scripts.unshift(copy);active=copy.id;save();renderEditor();
+};
+function download(data,name){
+const blob=new Blob([JSON.stringify(data,null,2)],{type:"application/json"});
+const url=URL.createObjectURL(blob);
+const a=document.createElement("a");
+a.href=url;a.download=name;document.body.append(a);a.click();a.remove();
+setTimeout(()=>URL.revokeObjectURL(url),1000);
+}
+$("exportScript").onclick=()=>download(script(),"lmc-script.json");
+$("backupButton").onclick=()=>download(scripts,"lmc-all-scripts-backup.json");
+$("importButton").onclick=()=>$("importFile").click();
+$("importFile").onchange=async e=>{
+const file=e.target.files[0];if(!file)return;
+try{
+const data=JSON.parse(await file.text());
+const items=Array.isArray(data)?data:[data];
+if(!items.length||items.some(x=>typeof x.title!=="string"||!Array.isArray(x.blocks)||x.blocks.some(b=>typeof b.title!=="string"||typeof b.text!=="string")))throw Error("Invalid script format");
+const imported=items.map(x=>({id:uid(),title:x.title,blocks:x.blocks.map(b=>({title:b.title,text:b.text}))}));
+scripts.unshift(...imported);active=imported[0].id;save();renderEditor();showTab("writer");
+}catch(err){alert("Could not import this JSON file.");}
+e.target.value="";
+};
+function renderLibrary(){
+const list=$("libraryItems");list.replaceChildren();
+const q=$("search").value.toLowerCase();
+scripts.filter(s=>s.title.toLowerCase().includes(q)).forEach(s=>{
+const item=element("div","library-item");
+const info=element("div");
+info.append(element("strong","",s.title),element("div","muted",`${s.blocks.length} sections`));
+const actions=element("div","row");
+const open=element("button","","Open");
+open.onclick=()=>{active=s.id;renderEditor();showTab("writer")};
+const del=element("button","danger","Delete");
+del.onclick=()=>{
+if(scripts.length===1)return alert("Keep at least one script.");
+if(!confirm("Delete this script?"))return;
+scripts=scripts.filter(x=>x.id!==s.id);
+if(active===s.id)active=scripts[0].id;
+save();renderLibrary();
+};
+actions.append(open,del);item.append(info,actions);list.append(item);
+});
+}
+$("search").oninput=renderLibrary;
+function showTab(name){
+$("writer").classList.toggle("hidden",name!=="writer");
+$("library").classList.toggle("hidden",name!=="library");
+document.querySelectorAll("[data-tab]").forEach(b=>b.classList.toggle("active",b.dataset.tab===name));
+if(name==="library")renderLibrary();
+}
+document.querySelectorAll("[data-tab]").forEach(b=>b.onclick=()=>showTab(b.dataset.tab));
+
+function stop(){
+playing=false;cancelAnimationFrame(frame);last=0;
+$("play").textContent="▶ Start";$("promptStatus").textContent="PAUSED";
+}
+function renderPrompt(){
+const s=script(),b=s.blocks[current];
+$("promptContent").replaceChildren();
+$("promptContent").append(element("h2","",b.title));
+b.text.split(/\n\s*\n/).filter(Boolean).forEach(line=>{
+$("promptContent").append(element("p","",line.trim()));
+});
+reader.scrollTop=0;
+$("sectionPicker").replaceChildren();
+s.blocks.forEach((b,i)=>{
+const opt=element("option","",`${i+1}. ${b.title}`);
+opt.value=i;$("sectionPicker").append(opt);
+});
+$("sectionPicker").value=current;
+$("progress").textContent=`Section ${current+1} of ${s.blocks.length}`;
+$("previous").disabled=current===0;
+$("next").disabled=current===s.blocks.length-1;
+}
+function go(n){
+stop();current=Math.max(0,Math.min(script().blocks.length-1,n));
+renderPrompt();$("promptStatus").textContent="READY";
+}
+function tick(time){
+if(!playing)return;
+if(last){
+reader.scrollTop+=(time-last)*Number($("speed").value)/1800;
+if(reader.scrollTop+reader.clientHeight>=reader.scrollHeight-2){
+stop();$("promptStatus").textContent="SECTION COMPLETE";return;
+}
+}
+last=time;frame=requestAnimationFrame(tick);
+}
+function togglePlay(){
+if(playing){stop();return;}
+playing=true;last=0;
+$("play").textContent="Ⅱ Pause";$("promptStatus").textContent="SCROLLING";
+frame=requestAnimationFrame(tick);
+}
+$("openPrompter").onclick=()=>{
+current=0;renderPrompt();
+$("prompterView").classList.add("open");
+$("promptStatus").textContent="READY";
+};
+$("closePrompter").onclick=()=>{
+stop();$("prompterView").classList.remove("open");
+if(document.fullscreenElement)document.exitFullscreen();
+};
+$("play").onclick=togglePlay;
+$("reset").onclick=()=>{stop();reader.scrollTop=0};
+$("previous").onclick=()=>go(current-1);
+$("next").onclick=()=>go(current+1);
+$("sectionPicker").onchange=e=>go(Number(e.target.value));
+$("speed").oninput=e=>$("speedNumber").textContent=e.target.value;
+$("fontSize").oninput=e=>{
+reader.style.setProperty("--font",e.target.value+"px");
+$("fontNumber").textContent=e.target.value;
+};
+$("mirror").onclick=()=>{
+const on=reader.classList.toggle("mirror");
+$("mirror").textContent="Mirror: "+(on?"ON":"OFF");
+};
+$("fullscreen").onclick=()=>{
+if(document.fullscreenElement)document.exitFullscreen();
+else $("prompterView").requestFullscreen();
+};
+document.addEventListener("keydown",e=>{
+if(!$("prompterView").classList.contains("open"))return;
+if(["INPUT","TEXTAREA","SELECT"].includes(document.activeElement.tagName))return;
+if(e.code==="Space"){e.preventDefault();togglePlay()}
+if(e.code==="ArrowRight")go(current+1);
+if(e.code==="ArrowLeft")go(current-1);
+if(e.code==="Escape"&&!document.fullscreenElement)$("closePrompter").click();
+});
+renderEditor();save();
+</script>
+</body>
+</html>
